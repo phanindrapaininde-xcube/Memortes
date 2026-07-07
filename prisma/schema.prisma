@@ -1,0 +1,383 @@
+// Memortes – Prisma schema for PostgreSQL (Supabase)
+// Run: npx prisma generate && npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profiles  (linked 1-to-1 to Supabase auth.users via trigger)
+// ─────────────────────────────────────────────────────────────────────────────
+model Profile {
+  id              String   @id @db.Uuid
+  username        String   @unique
+  display_name    String?
+  bio             String?
+  avatar_url      String?
+  website         String?
+  followers_count Int      @default(0)
+  following_count Int      @default(0)
+  posts_count     Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  posts                    Post[]
+  stories                  Story[]
+  post_likes               PostLike[]
+  post_saves               PostSave[]
+  post_comments            PostComment[]
+  followers                Follow[]               @relation("following")
+  following                Follow[]               @relation("follower")
+  sent_messages            Message[]
+  notifications            Notification[]         @relation("recipient")
+  actor_notifications      Notification[]         @relation("actor")
+  collections              Collection[]
+  friendship_streaks_as_1  FriendshipStreak[]     @relation("user1")
+  friendship_streaks_as_2  FriendshipStreak[]     @relation("user2")
+  user_interests           UserInterest[]
+  ai_memories              AiMemory[]
+  conversation_participants ConversationParticipant[]
+  story_views              StoryView[]
+
+  @@map("profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Posts
+// ─────────────────────────────────────────────────────────────────────────────
+model Post {
+  id             String      @id @default(uuid()) @db.Uuid
+  user_id        String      @db.Uuid
+  type           PostType    @default(post)
+  image_url      String?
+  video_url      String?
+  caption        String?
+  mood           String?
+  privacy        PostPrivacy @default(public)
+  likes_count    Int         @default(0)
+  comments_count Int         @default(0)
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  profile           Profile            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post_likes        PostLike[]
+  post_saves        PostSave[]
+  post_comments     PostComment[]
+  post_hashtags     PostHashtag[]
+  collection_posts  CollectionPost[]
+  ai_memory_posts   AiMemoryPost[]
+  notifications     Notification[]
+
+  @@index([user_id])
+  @@index([created_at(sort: Desc)])
+  @@index([privacy])
+  @@map("posts")
+}
+
+enum PostType {
+  post
+  reel
+}
+
+enum PostPrivacy {
+  public
+  friends
+  close_friends
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stories  (expires 24 h after creation)
+// ─────────────────────────────────────────────────────────────────────────────
+model Story {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  image_url  String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  profile     Profile     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  story_views StoryView[]
+
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("stories")
+}
+
+model StoryView {
+  story_id   String   @db.Uuid
+  viewer_id  String   @db.Uuid
+  viewed_at  DateTime @default(now())
+
+  story   Story   @relation(fields: [story_id], references: [id], onDelete: Cascade)
+  viewer  Profile @relation(fields: [viewer_id], references: [id], onDelete: Cascade)
+
+  @@id([story_id, viewer_id])
+  @@map("story_views")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Post interactions
+// ─────────────────────────────────────────────────────────────────────────────
+model PostLike {
+  user_id    String   @db.Uuid
+  post_id    String   @db.Uuid
+  created_at DateTime @default(now())
+
+  profile Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post    Post    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, post_id])
+  @@map("post_likes")
+}
+
+model PostSave {
+  user_id    String   @db.Uuid
+  post_id    String   @db.Uuid
+  created_at DateTime @default(now())
+
+  profile Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post    Post    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, post_id])
+  @@map("post_saves")
+}
+
+model PostComment {
+  id         String   @id @default(uuid()) @db.Uuid
+  post_id    String   @db.Uuid
+  user_id    String   @db.Uuid
+  text       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  post    Post    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([post_id])
+  @@map("post_comments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Social graph – follows
+// ─────────────────────────────────────────────────────────────────────────────
+model Follow {
+  follower_id  String   @db.Uuid
+  following_id String   @db.Uuid
+  created_at   DateTime @default(now())
+
+  follower  Profile @relation("follower", fields: [follower_id], references: [id], onDelete: Cascade)
+  following Profile @relation("following", fields: [following_id], references: [id], onDelete: Cascade)
+
+  @@id([follower_id, following_id])
+  @@index([follower_id])
+  @@index([following_id])
+  @@map("follows")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Friendship streaks
+// ─────────────────────────────────────────────────────────────────────────────
+model FriendshipStreak {
+  id                   String   @id @default(uuid()) @db.Uuid
+  user1_id             String   @db.Uuid
+  user2_id             String   @db.Uuid
+  streak_count         Int      @default(1)
+  last_interaction_at  DateTime @default(now())
+  created_at           DateTime @default(now())
+
+  user1 Profile @relation("user1", fields: [user1_id], references: [id], onDelete: Cascade)
+  user2 Profile @relation("user2", fields: [user2_id], references: [id], onDelete: Cascade)
+
+  @@unique([user1_id, user2_id])
+  @@map("friendship_streaks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Direct messages – conversation model
+// ─────────────────────────────────────────────────────────────────────────────
+model Conversation {
+  id         String   @id @default(uuid()) @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversation_id String   @db.Uuid
+  user_id         String   @db.Uuid
+  joined_at       DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  profile      Profile      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([conversation_id, user_id])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id              String   @id @default(uuid()) @db.Uuid
+  conversation_id String   @db.Uuid
+  sender_id       String   @db.Uuid
+  // receiver_id kept for direct-query compatibility with the mobile app
+  receiver_id     String?  @db.Uuid
+  text            String?
+  image_url       String?
+  read_at         DateTime?
+  created_at      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender       Profile      @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id])
+  @@index([sender_id])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  user_id    String           @db.Uuid   // recipient
+  actor_id   String?          @db.Uuid   // who triggered it
+  type       NotificationType
+  post_id    String?          @db.Uuid
+  message    String?
+  read       Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  recipient Profile  @relation("recipient", fields: [user_id], references: [id], onDelete: Cascade)
+  actor     Profile? @relation("actor", fields: [actor_id], references: [id], onDelete: SetNull)
+  post      Post?    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  like
+  comment
+  follow
+  mention
+  story_view
+  streak
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collections (saved posts)
+// ─────────────────────────────────────────────────────────────────────────────
+model Collection {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  name       String
+  cover_url  String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  profile          Profile          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  collection_posts CollectionPost[]
+
+  @@index([user_id])
+  @@map("collections")
+}
+
+model CollectionPost {
+  collection_id String   @db.Uuid
+  post_id       String   @db.Uuid
+  added_at      DateTime @default(now())
+
+  collection Collection @relation(fields: [collection_id], references: [id], onDelete: Cascade)
+  post       Post       @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@id([collection_id, post_id])
+  @@map("collection_posts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hashtags
+// ─────────────────────────────────────────────────────────────────────────────
+model Hashtag {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  posts_count Int      @default(0)
+  created_at  DateTime @default(now())
+
+  post_hashtags PostHashtag[]
+
+  @@map("hashtags")
+}
+
+model PostHashtag {
+  post_id    String @db.Uuid
+  hashtag_id String @db.Uuid
+
+  post    Post    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+
+  @@id([post_id, hashtag_id])
+  @@map("post_hashtags")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User interests (for feed personalisation)
+// ─────────────────────────────────────────────────────────────────────────────
+model Interest {
+  id       String @id @default(uuid()) @db.Uuid
+  name     String @unique
+  category String?
+
+  user_interests UserInterest[]
+
+  @@map("interests")
+}
+
+model UserInterest {
+  user_id     String @db.Uuid
+  interest_id String @db.Uuid
+
+  profile  Profile  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interest_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, interest_id])
+  @@map("user_interests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Memories (Phase 2)
+// ─────────────────────────────────────────────────────────────────────────────
+model AiMemory {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  title       String
+  description String?
+  cover_url   String?
+  generated   Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  profile         Profile        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  ai_memory_posts AiMemoryPost[]
+
+  @@index([user_id])
+  @@map("ai_memories")
+}
+
+model AiMemoryPost {
+  ai_memory_id String @db.Uuid
+  post_id      String @db.Uuid
+
+  ai_memory AiMemory @relation(fields: [ai_memory_id], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@id([ai_memory_id, post_id])
+  @@map("ai_memory_posts")
+}
