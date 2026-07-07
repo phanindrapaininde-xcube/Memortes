@@ -4,11 +4,19 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import * as express from 'express';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'],
-  });
+const server = express();
+
+async function createNestServer(expressInstance: express.Express) {
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(expressInstance),
+    {
+      logger: ['error', 'warn', 'log', 'debug'],
+    },
+  );
 
   // CORS – allow the Expo dev server and any production origin
   app.enableCors({
@@ -52,10 +60,30 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
+  await app.init();
+  return app;
+}
+
+// Bootstrap for local development
+async function bootstrap() {
+  const expressApp = express();
+  const app = await createNestServer(expressApp);
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`Memortes backend running on http://localhost:${port}/api/v1`);
   console.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+// If not running on Vercel, run normal bootstrap
+if (!process.env.VERCEL) {
+  bootstrap();
+}
+
+// Export the serverless handler for Vercel
+let cachedServer: any;
+export default async (req: any, res: any) => {
+  if (!cachedServer) {
+    cachedServer = await createNestServer(server);
+  }
+  return server(req, res);
+};
