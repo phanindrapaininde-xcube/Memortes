@@ -7,7 +7,6 @@ import {
   Patch,
   Post,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CollectionsService } from './collections.service';
@@ -18,8 +17,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('collections')
-@Controller('collections')
-@Version('1')
+@Controller({ path: 'collections', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class CollectionsController {

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, Version } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { SearchService } from './search.service';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
@@ -6,8 +6,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('search')
-@Controller('search')
-@Version('1')
+@Controller({ path: 'search', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class SearchController {

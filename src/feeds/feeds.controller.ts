@@ -3,7 +3,6 @@ import {
   Get,
   Query,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { FeedsService } from './feeds.service';
@@ -12,8 +11,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('feeds')
-@Controller('feeds')
-@Version('1')
+@Controller({ path: 'feeds', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class FeedsController {

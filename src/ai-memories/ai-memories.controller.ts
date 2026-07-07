@@ -6,7 +6,6 @@ import {
   Post,
   Query,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AiMemoriesService } from './ai-memories.service';
@@ -15,8 +14,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('ai-memories')
-@Controller('ai-memories')
-@Version('1')
+@Controller({ path: 'ai-memories', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class AiMemoriesController {

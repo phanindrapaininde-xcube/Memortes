@@ -5,7 +5,6 @@ import {
   Param,
   Post,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FriendshipsService } from './friendships.service';
@@ -14,8 +13,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('friendships')
-@Controller('friendships')
-@Version('1')
+@Controller({ path: 'friendships', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class FriendshipsController {

@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Post,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -23,8 +22,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('auth')
-@Controller('auth')
-@Version('1')
+@Controller({ path: 'auth', version: '1' })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

@@ -4,8 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { SupabaseConfigService } from '../../config/supabase.config';
 import { Request } from 'express';
 
 export interface SupabaseJwtPayload {
@@ -13,8 +12,6 @@ export interface SupabaseJwtPayload {
   email?: string;
   role?: string;
   aud?: string;
-  exp?: number;
-  iat?: number;
   app_metadata?: Record<string, unknown>;
   user_metadata?: Record<string, unknown>;
 }
@@ -26,8 +23,7 @@ export interface SupabaseJwtPayload {
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
+    private readonly supabase: SupabaseConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -39,15 +35,25 @@ export class SupabaseAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<SupabaseJwtPayload>(
-        token,
-        { secret: this.config.getOrThrow<string>('JWT_SECRET') },
-      );
+      const { data: { user }, error } = await this.supabase.client.auth.getUser(token);
+
+      if (error || !user) {
+        throw new UnauthorizedException(error?.message ?? 'Invalid or expired token');
+      }
 
       // Supabase tokens use 'authenticated' role for logged-in users
-      if (payload.role !== 'authenticated' && payload.aud !== 'authenticated') {
+      if (user.role !== 'authenticated' && user.aud !== 'authenticated') {
         throw new UnauthorizedException('Token role is not authenticated');
       }
+
+      const payload: SupabaseJwtPayload = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        aud: user.aud,
+        app_metadata: user.app_metadata,
+        user_metadata: user.user_metadata,
+      };
 
       // Attach to request so downstream handlers can read it
       (request as any).user = payload;

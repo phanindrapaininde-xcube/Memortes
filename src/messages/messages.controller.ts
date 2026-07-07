@@ -7,7 +7,6 @@ import {
   Post,
   Query,
   UseGuards,
-  Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
@@ -18,8 +17,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SupabaseJwtPayload } from '../common/guards/supabase-auth.guard';
 
 @ApiTags('messages')
-@Controller('messages')
-@Version('1')
+@Controller({ path: 'messages', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class MessagesController {

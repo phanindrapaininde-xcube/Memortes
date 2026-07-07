@@ -11,8 +11,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { SupabaseConfigService } from '../config/supabase.config';
 import { MessagesService } from './messages.service';
 import { SendMessageDto } from './dto/send-message.dto';
 
@@ -34,8 +33,7 @@ export class MessagesGateway
 
   constructor(
     private readonly messagesService: MessagesService,
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
+    private readonly supabase: SupabaseConfigService,
   ) {}
 
   afterInit() {
@@ -51,16 +49,18 @@ export class MessagesGateway
 
       if (!token) throw new Error('No token');
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.config.getOrThrow('JWT_SECRET'),
-      });
+      const { data: { user }, error } = await this.supabase.client.auth.getUser(token);
 
-      client.userId = payload.sub as string;
+      if (error || !user) {
+        throw new Error(error?.message ?? 'Invalid token');
+      }
+
+      client.userId = user.id;
       // Join a personal room so we can push notifications
       await client.join(`user:${client.userId}`);
       this.logger.debug(`Client connected: ${client.userId}`);
-    } catch {
-      this.logger.warn(`Unauthorized WS connection attempt: ${client.id}`);
+    } catch (err: any) {
+      this.logger.warn(`Unauthorized WS connection attempt: ${client.id} - Reason: ${err?.message ?? 'Unknown'}`);
       client.disconnect(true);
     }
   }

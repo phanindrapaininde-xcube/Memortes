@@ -23,8 +23,7 @@ if (!env.DATABASE_URL) {
   process.exit(1);
 }
 
-const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
-const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+const schemaFile = path.join(__dirname, '..', 'supabase', 'schema.sql');
 
 async function migrate() {
   const sql = postgres(env.DATABASE_URL, {
@@ -59,20 +58,16 @@ async function migrate() {
   if (types.length > 0) console.log(`   Dropped: ${types.map(t => t.typname).join(', ')}`);
   else console.log('   No custom types.');
 
-  // ── Run each migration file ───────────────────────────────────
-  console.log(`\n📂  Running ${files.length} migration(s):\n`);
-  for (const file of files) {
-    process.stdout.write(`▶  ${file} ... `);
-    const filePath = path.join(migrationsDir, file);
-    try {
-      await sql.file(filePath);
-      console.log('✅');
-    } catch (err) {
-      console.log('❌');
-      console.error(`   ${err.message}\n`);
-      await sql.end();
-      process.exit(1);
-    }
+  // ── Run schema file ───────────────────────────────────────────
+  console.log(`\n📂  Running schema.sql...\n`);
+  try {
+    await sql.file(schemaFile);
+    console.log('✅  schema.sql applied successfully.');
+  } catch (err) {
+    console.log('❌  Failed to apply schema.sql');
+    console.error(`   ${err.message}\n`);
+    await sql.end();
+    process.exit(1);
   }
 
   await sql.end();

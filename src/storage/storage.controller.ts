@@ -8,7 +8,6 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  Version,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -34,8 +33,7 @@ class DeleteFileDto {
 }
 
 @ApiTags('storage')
-@Controller('storage')
-@Version('1')
+@Controller({ path: 'storage', version: '1' })
 @UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class StorageController {
