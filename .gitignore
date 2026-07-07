@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.js.map
+prisma/migrations/dev.db
+prisma/*.db
+.DS_Store
+coverage/
