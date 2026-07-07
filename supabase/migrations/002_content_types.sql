@@ -18,10 +18,12 @@ insert into storage.buckets (id, name, public)
   values ('reels', 'reels', true)
   on conflict (id) do nothing;
 
+drop policy if exists "reels bucket: public read" on storage.objects;
 create policy "reels bucket: public read"
   on storage.objects for select
   using (bucket_id = 'reels');
 
+drop policy if exists "reels bucket: auth insert" on storage.objects;
 create policy "reels bucket: auth insert"
   on storage.objects for insert
   with check (bucket_id = 'reels' and auth.role() = 'authenticated');
